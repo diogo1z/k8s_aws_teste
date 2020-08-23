@@ -1,16 +1,28 @@
 apiVersion : apps/v1
 kind: Deployment
 metadata:
-  name: "k8sprod-ca23"
+  name: k8sprod-ca23 
 spec:
   replicas: 2
+  selector:
+    matchLabels:
+      app: k8sprod-ca23
   template:
     metadata:
       labels:
-        app: "k8sprod-ca23"
+        app: k8sprod-ca23
     spec:
       containers:
-        - name: "k8sprod-ca23"
-          image: "testk8sfirst.azurecr.io/k8sprod"
+        - name: k8sprod-ca23
+          image: testk8sfirst.azurecr.io/k8sprod
+          env:
+            - name: MensagemVariavel
+              value: Utilizando o Azure Kubernetes Service (AKS)
           ports:
           - containerPort: 5000
+          
+          
+          
+          
+          
+  
