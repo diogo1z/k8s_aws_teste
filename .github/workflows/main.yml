@@ -1,0 +1,19 @@
+#Put action .yml file in .github/workflows folder.
+name: Build and push AKS
+on:
+  push:
+    #Trigger when a new tag is pushed to repo
+    #This could just as easily be on code push to master
+    #but using tags allow a very nice workflow
+    tags:
+     - '*'
+jobs:
+  build:
+    #Run on a GitHub managed agent
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+
+    #Set environment variable with the tag id
+    - name: Set env
+      run: echo ::set-env name=RELEASE_VERSION::${GITHUB_REF#refs/tags/}
