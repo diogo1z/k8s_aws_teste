@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ActionAPI</name>
+    </assembly>
+    <members>
+        <member name="M:Mobile.Controllers.v1.TokenController.GetCounterInformation">
+            <summary>
+            Get the time that counter should be shown on card screen
+            </summary>
+            <response code="200">If the time is gotten successfully</response>
+            <response code="500">If any error occurs while processing the request</response>
+        </member>
+    </members>
+</doc>
