@@ -1,63 +1,72 @@
-on: [push]
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
 jobs:
-  build-and-deploy:
+  build:
+
+    env:
+      DOCKER_CONTAINER_REGISTRY: groffegithubactions.azurecr.io
+      NOME_IMAGEM: $DOCKER_CONTAINER_REGISTRY/apicontagemk8s
+      PATH_PROJETO: ./APIContagem
+      AZURE_RESOURCE_GROUP_K8S: TesteKubernetes
+      AZURE_CLUSTER_K8S: AKSCluster
+      NAMESPACE_K8S: anp0
+      DEPLOYMENT_K8S: apicontagemk8s
+
     runs-on: ubuntu-latest
+
     steps:
+    - uses: actions/checkout@v2
     
-    - uses: actions/checkout@master
-    
-    - uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Teste nome imagem
+      run: echo ${{ env.NOME_IMAGEM }}
 
-    - name: Create ACR
-      id: create-acr
+    - name: Login no Azure Container Registry
+      uses: Azure/docker-login@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        login-server: ${{ env.DOCKER_CONTAINER_REGISTRY }}
+      
+    - name: Build e Push no Azure Container Registry
       run: |
-        az acr create -n testk8sfirst -g testk8sfirst9fca-rg --location "South Central US" --sku Standard --admin-enabled
-        echo "::set-output name=acr_username::`az acr credential show -n testk8sfirst --query username | xargs`"
-        echo "::set-output name=acr_password::`az acr credential show -n testk8sfirst --query passwords[0].value | xargs`"
-        echo "::add-mask::`az acr credential show -n testk8sfirst --query passwords[0].value | xargs`"
+        cd ${{ env.PATH_PROJETO }}
+        docker build . --file Dockerfile --tag ${{ env.NOME_IMAGEM }}:$GITHUB_RUN_NUMBER
+        docker tag ${{ env.NOME_IMAGEM }}:$GITHUB_RUN_NUMBER ${{ env.NOME_IMAGEM }}:latest
+        docker push ${{ env.NOME_IMAGEM }}
+    - name: Azure Kubernetes Service - set context - Conectando ao cluster
+      uses: Azure/aks-set-context@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }} 
+        resource-group: ${{ env.AZURE_RESOURCE_GROUP_K8S }}
+        cluster-name:  ${{ env.AZURE_CLUSTER_K8S }}
 
-    - uses: azure/docker-login@v1
+    - name: Azure Kubernetes Service - Criando Secret para acesso ao Container Registry
+      uses: Azure/k8s-create-secret@v1
       with:
-        login-server: testk8sfirst.azurecr.io
-        username: ${{ steps.create-acr.outputs.acr_username }}
-        password: ${{ steps.create-acr.outputs.acr_password }}
+        namespace: ${{ env.NAMESPACE_K8S }}
+        container-registry-url: ${{ env.DOCKER_CONTAINER_REGISTRY }}
+        container-registry-username: ${{ secrets.DOCKER_USERNAME }}
+        container-registry-password: ${{ secrets.DOCKER_PASSWORD }}
+        secret-name: webapp-k8s-secret
 
-    - name: Build and push image to ACR
-      id: build-image
-      run: |
-        docker build "$GITHUB_WORKSPACE/" -f  "Dockerfile" -t testk8sfirst.azurecr.io/k8sprod:${{ github.sha }}
-        docker push testk8sfirst.azurecr.io/k8sprod:${{ github.sha }}
-    
-    - uses: azure/k8s-set-context@v1
-      id: login
-      with:
-         kubeconfig: ${{ secrets.aks_k8sprod_kubeConfig }}
-    
-    - name: Create namespace
-      run: |
-        namespacePresent=`kubectl get namespace | grep k8sprod63ef | wc -l`
-        if [ $namespacePresent -eq 0 ]
-        then
-            echo `kubectl create namespace k8sprod63ef`
-        fi
+    - name: kubectl - Exibindo a versão
+      run: kubectl version
 
-    - uses: azure/k8s-create-secret@v1
+    - name: kubectl - Removendo o Deployment caso exista
+      run: kubectl delete deployment --ignore-not-found ${{ env.DEPLOYMENT_K8S }} -n ${{ env.NAMESPACE_K8S }}
+
+    - name: Azure Kubernetes Service - Deployment de Web App
+      uses: Azure/k8s-deploy@v1
       with:
-        namespace: k8sprod63ef
-        container-registry-url: testk8sfirst.azurecr.io
-        container-registry-username: ${{ steps.create-acr.outputs.acr_username }}
-        container-registry-password: ${{ steps.create-acr.outputs.acr_password }}
-        secret-name: k8sproddockerauth
-       
-    - uses: azure/k8s-deploy@v1
-      with:
-        namespace: k8sprod63ef
+        namespace: ${{ env.NAMESPACE_K8S }}
         manifests: |
           manifests/deployment.yml
           manifests/service.yml
         images: |
-          testk8sfirst.azurecr.io/k8sprod:${{ github.sha }}
+          ${{ env.NOME_IMAGEM }}:latest
         imagepullsecrets: |
-          k8sproddockerauth
+          webapp-k8s-secret
