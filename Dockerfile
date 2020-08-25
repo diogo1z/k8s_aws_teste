@@ -18,11 +18,13 @@ COPY --from=publish /app/out ./app
 
 WORKDIR /app
 
-ENV TZ=America/Sao_Paulo
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+#ENV TZ=America/Sao_Paulo
+#RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl --silent --fail http://localhost:5000 || exit 1
+#HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl --silent --fail http://localhost:5000 || exit 1
 
-EXPOSE 5000
 
-ENTRYPOINT [ "dotnet", "ActionAPI.dll" ]
+RUN ls 
+
+
+ENTRYPOINT [ "dotnet", "ActionAPI.dll" , "--urls", "http://*:5000"]
