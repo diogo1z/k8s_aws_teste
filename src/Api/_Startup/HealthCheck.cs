@@ -23,7 +23,7 @@ namespace Api._Startup
             var routeBuilder = new RouteBuilder(app);
             routeBuilder.MapGet("/", context =>
             {
-                return context.Response.WriteAsync("pong");
+                return context.Response.WriteAsync("pong 2");
             });
             app.UseRouter(routeBuilder.Build());
 
